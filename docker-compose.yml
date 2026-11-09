@@ -1,0 +1,30 @@
+services:
+  gitlab:
+    image: docker.io/gitlab/gitlab-ce:19.5.3-ce.0
+    container_name: gitlab
+    restart: unless-stopped
+    hostname: 'gitlab.home.matthomelab.xyz'
+    ports:
+      # Git over SSH, reachable over WireGuard only.
+      # Docker bypasses ufw, so binding to the VPN address is what keeps it private.
+      - '10.10.0.1:2424:22'
+    networks:
+      - frontend
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=frontend
+      - traefik.http.services.gitlab_web.loadBalancer.server.port=80
+      - traefik.http.services.gitlab_web.loadBalancer.server.scheme=http
+      - traefik.http.routers.gitlab_https.service=gitlab_web
+      - traefik.http.routers.gitlab_https.rule=Host(`gitlab.home.matthomelab.xyz`)
+      # VPN-only entrypoint; TLS comes from the entrypoint's settings
+      - traefik.http.routers.gitlab_https.entrypoints=internal
+    volumes:
+      - './config/gitlab.rb:/etc/gitlab/gitlab.rb:ro'
+      - './config:/etc/gitlab'
+      - './logs:/var/log/gitlab'
+      - './data:/var/opt/gitlab'
+    shm_size: '256m'
+networks:
+  frontend:
+    external: true
